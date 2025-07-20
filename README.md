@@ -17,9 +17,12 @@
   1. create and activate virtual env w/:
      ```python -m venv venv```
      ```venv\Scripts\activate```
+  
   2. install backend deps w/:
      ```pip install -r requirements.txt```
+  
   3. set up .env variables
+  
   4. start backend server w/:
      ```uvicorn app.main:app --reload```
 
