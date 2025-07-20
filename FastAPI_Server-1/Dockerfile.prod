@@ -1,0 +1,104 @@
+# Look here for resources: https://testdriven.io/blog/dockerizing-django-with-postgres-gunicorn-and-nginx/
+# https://www.youtube.com/watch?v=3xDAU5cvi5E&ab_channel=SanjeevThiyagarajan
+
+###########
+# BUILDER #
+###########
+
+# pull official base image
+FROM python:3.11-slim as builder
+
+# set work directory
+WORKDIR /app
+
+# set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install poetry poetry-plugin-export
+
+# Copy only the necessary files for Poetry
+COPY pyproject.toml .
+COPY poetry.lock .
+COPY .env.prod .
+COPY ./app/install_requirements.prod.sh .
+COPY requirements.txt .
+
+# Export the dependencies to a requirements.txt file
+RUN sed -i 's/\r$//g'  install_requirements.prod.sh
+RUN chmod +x install_requirements.prod.sh
+RUN /app/install_requirements.prod.sh
+
+RUN pip install --upgrade pip
+
+# lint checkings
+# RUN pip install flake8==3.9.2
+# COPY . .
+# RUN flake8 --ignore=E501,F401,E302,E266,E303,E401,E402,E301,E203,F811,F841 .
+
+# install dependencies
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+#########
+# FINAL #
+#########
+
+# pull official base image
+FROM python:3.11-slim
+
+# create directory for the app user
+RUN mkdir -p /home/app
+
+# create the app user (using Debian commands)
+RUN groupadd -r app && useradd -r -g app app
+
+# create the appropriate directories
+ENV HOME=/home/app
+ENV APP_HOME=/home/app/web
+RUN mkdir $APP_HOME
+
+# Create .local directory structure for crewai
+RUN mkdir -p /home/app/.local/share \
+    && mkdir -p /home/app/.cache
+
+WORKDIR $APP_HOME
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libpq5 \
+    netcat-traditional \
+    && rm -rf /var/lib/apt/lists/*
+
+
+COPY --from=builder /app/wheels /wheels
+COPY --from=builder /app/requirements.txt .
+RUN pip install --no-cache /wheels/*
+# RUN pip install django-extensions
+
+# copy project
+COPY . $APP_HOME
+RUN sed -i 's/\r$//g'  $APP_HOME/app/entrypoint.prod.sh
+RUN chmod +xr  $APP_HOME/app/entrypoint.prod.sh
+
+RUN mkdir -p /static /media
+
+# Add app directory to Python path
+ENV PYTHONPATH="${PYTHONPATH}:${APP_HOME}"
+
+# chown all the files to the app user
+RUN chown -R app:app $APP_HOME \
+    && chown -R app:app /media \
+    && chown -R app:app /static 
+# change to the app user
+USER app
+
+# run entrypoint.prod.sh
+ENTRYPOINT ["/home/app/web/app/entrypoint.prod.sh"]

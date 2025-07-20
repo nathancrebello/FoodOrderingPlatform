@@ -1,0 +1,78 @@
+services:
+  web:
+    container_name: voiceagent_web_dev
+    build: .
+    command: >
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info"
+    ports:
+      - '8000:8000'
+    expose:
+      - '8000'
+    depends_on:
+      - db
+    networks:
+      - voiceagent_dev_network
+    env_file:
+      - ./.env
+
+  db:
+    container_name: voiceagent_postgres_dev
+    image: postgres:13.0-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - '5432:5432'
+    expose:
+      - '5432'
+    environment:
+      - POSTGRES_USER=voiceagent_admin
+      - POSTGRES_PASSWORD=voiceagent_admin_234
+      - POSTGRES_DB=voiceagent
+    networks:
+      - voiceagent_dev_network
+
+  redis:
+    container_name: voiceagent_redis_dev
+    image: redis:7.0-alpine
+    networks:
+      - voiceagent_dev_network
+    ports:
+      - 6379:6379
+    volumes:
+      - redis_data:/var/lib/redis/data/
+
+  celery_worker:
+    container_name: voiceagent_celery_dev
+    build: .
+    command: celery -A app.celery.celery worker -l info
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - voiceagent_dev_network
+    env_file:
+      - ./.env
+    depends_on:
+      - redis
+      - db
+
+  flower:
+    container_name: voiceagent_flower_dev
+    build: .
+    command: celery -A app.celery.celery flower
+    networks:
+      - voiceagent_dev_network
+    env_file:
+      - ./.env
+    ports:
+      - 5557:5555
+    depends_on:
+      - redis
+      - db
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  voiceagent_dev_network:
