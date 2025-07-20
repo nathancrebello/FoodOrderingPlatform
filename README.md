@@ -1,6 +1,6 @@
 # AI Food Ordering Platform built for Quick Service Restaurants.
 
-## Setting Up Frontend: 
+## Setting up Frontend: 
 
   1.  cd into “src” Folder
 
@@ -12,7 +12,7 @@
   5. Start the dev server w/:
      ```npm run dev```
 
-## Setting Up Backend:
+## Setting up Backend:
 
   1. create and activate virtual env w/:
      ```python -m venv venv```
