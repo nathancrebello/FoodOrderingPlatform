@@ -1,4 +1,4 @@
-# AI Food Ordering Platform
+# AI Food Ordering Platform built for Quick Service Restaurants.
 
 ## Setting Up Frontend: 
 
